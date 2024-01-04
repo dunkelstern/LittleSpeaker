@@ -1,3 +1,6 @@
+#ifndef LITTLESPEAKER_MENU_H
+#define LITTLESPEAKER_MENU_H
+
 #include <Arduino.h>
 #include <SD.h>
 
@@ -16,7 +19,8 @@ class MenuItem;
 //
 class Menu {
   public:
-    Menu();
+    Menu(MenuItem **items = NULL, void *context = NULL);
+    Menu(void *context = NULL): Menu(NULL, context) {};
     ~Menu();
 
     void setItems(MenuItem **item); // close off menu with NULL value
@@ -33,12 +37,15 @@ class Menu {
     void setEnterCallback(void (*callback)(Menu *menu));
     void setLeaveCallback(void (*callback)(Menu *menu));
 
+    void *getContext();
+
   protected:
     int numItems;
     int selectedItem;
     MenuState state;
 
   private:
+    void *context;
     MenuItem **items;
     void (*displayCallback)(const char *text);
     void (*audioCallback)(const char *audioFilename);
@@ -62,7 +69,7 @@ class DynamicMenu: public Menu {
 //
 class ButtonMenu: public Menu {
     public:
-        ButtonMenu(void (*prev)(), void (*next)(), void (*enter)());
+        ButtonMenu(void (*prev)(Menu *menu), void (*next)(Menu *menu), void (*enter)(Menu *menu), void *context = NULL);
         ~ButtonMenu();
 
         MenuItem *selectNextItem() override;
@@ -70,9 +77,9 @@ class ButtonMenu: public Menu {
         Menu *enterItem() override;
 
     private:
-        void (*prevCallback)();
-        void (*nextCallback)();
-        void (*enterCallback)();
+        void (*prevCallback)(Menu *menu);
+        void (*nextCallback)(Menu *menu);
+        void (*enterCallback)(Menu *menu);
 };
 
 //
@@ -83,6 +90,8 @@ class ButtonMenu: public Menu {
 class MenuItem {
   public:
     MenuItem(const char *title, const char *audioFilename, Menu *submenu = NULL, void (*callback)(MenuItem *) = NULL);
+    MenuItem(const char *title, const char *audioFilename, Menu *submenu) : MenuItem(title, audioFilename, submenu, NULL) {};
+    MenuItem(const char *title, const char *audioFilename, void (*callback)(MenuItem *)) : MenuItem(title, audioFilename, NULL, callback) {};
     ~MenuItem();
 
     Menu *call();
@@ -96,3 +105,5 @@ class MenuItem {
     Menu *submenu;
     void (*callback)(MenuItem *item);
 };
+
+#endif

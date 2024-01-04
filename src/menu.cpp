@@ -57,9 +57,16 @@ Menu* MenuItem::getSubmenu() {
 // Menu Implementation
 //
 
-Menu::Menu() {
+
+Menu::Menu(MenuItem **items, void *context) {
     this->numItems = 0;
     this->state = StateInMenu;
+    this->context = context;
+    this->selectedItem = -1;
+
+    if (items) {
+        this->setItems(items);
+    }
 }
 
 Menu::~Menu() {
@@ -67,6 +74,10 @@ Menu::~Menu() {
         delete items[i];
     }
     free(items);
+}
+
+void* Menu::getContext() {
+    return this->context;
 }
 
 void Menu::setItems(MenuItem **items) {
@@ -264,14 +275,10 @@ Menu* Menu::leaveItem() {
 // Buttonmenu Implementation
 //
 
-ButtonMenu::ButtonMenu(void (*prev)(), void (*next)(), void (*enter)()) {
+ButtonMenu::ButtonMenu(void (*prev)(Menu *menu), void (*next)(Menu *menu), void (*enter)(Menu *menu), void *context): Menu(context) {
     this->prevCallback = prev;
     this->nextCallback = next;
     this->enterCallback = enter;
-
-    this->numItems = 1;
-    this->selectedItem = 0;
-    this->state = StateInMenu;
 }
 
 ButtonMenu::~ButtonMenu() {
@@ -279,7 +286,7 @@ ButtonMenu::~ButtonMenu() {
 
 MenuItem* ButtonMenu::selectNextItem() {
     if (this->nextCallback) {
-        this->nextCallback();
+        this->nextCallback(this);
     }
 
     return NULL;
@@ -287,7 +294,7 @@ MenuItem* ButtonMenu::selectNextItem() {
 
 MenuItem* ButtonMenu::selectPreviousItem() {
     if (this->prevCallback) {
-        this->prevCallback();
+        this->prevCallback(this);
     }
 
     return NULL;
@@ -295,7 +302,7 @@ MenuItem* ButtonMenu::selectPreviousItem() {
 
 Menu * ButtonMenu::enterItem() {
     if (this->enterCallback) {
-        this->enterCallback();
+        this->enterCallback(this);
     }
 
     return NULL;
