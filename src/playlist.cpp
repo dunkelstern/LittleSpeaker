@@ -90,21 +90,6 @@ bool Playlist::addFilename(const char *filename) {
     return true;
 }
 
-char* Playlist::getCurrentlyPlaying() {
-    if (xSemaphoreTake(this->ringBufferMutex, 20) == pdFALSE) {
-        // Could not acquire mutex
-        return NULL;
-    }
-
-    if (this->readMarker >= 0) {
-        xSemaphoreGive(this->ringBufferMutex);
-        return this->itemRingbuffer[this->readMarker];
-    }
-
-    xSemaphoreGive(this->ringBufferMutex);
-    return NULL;
-}
-
 char* Playlist::consumeItem() {
     if (xSemaphoreTake(this->ringBufferMutex, 20) == pdFALSE) {
         // Could not acquire mutex

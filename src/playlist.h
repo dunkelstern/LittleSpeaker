@@ -1,7 +1,8 @@
-#include <Arduino.h>
-#include "AudioOutput.h"
-#include "AudioGenerator.h"
+#ifndef LITTLESPEAKER_PLAYLIST_H
+#define LITTLESPEAKER_PLAYLIST_H
+
 #include "AudioFileSource.h"
+#include "AudioGenerator.h"
 
 typedef enum _PlaybackState {
     PlaybackStateStopped = 0,
@@ -16,7 +17,6 @@ class Playlist {
         ~Playlist();
 
         bool addFilename(const char *filename);
-        char *getCurrentlyPlaying();
         PlaybackState getState();
         void play();
         void pause();
@@ -42,3 +42,5 @@ class Playlist {
         char *preallocateBuffer;
         char *preallocateCodec;
 };
+
+#endif
