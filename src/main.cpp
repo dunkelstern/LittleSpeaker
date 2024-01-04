@@ -85,19 +85,25 @@ Playlist *playlist = NULL;
 //
 // BLUETOOTH
 //
-#include "BluetoothA2DPSink.h"
+#include "bluetooth.h"
 
-BluetoothA2DPSink *a2dpSink = NULL;
+BluetoothPlayer *btPlayer;
 
-void bluetoothPrev();
-void bluetoothNext();
-void bluetoothPlayPause();
+//
+// WEBRADIO
+//
+#include "webradio.h"
+
+//
+// SDCARD
+//
+#include "sdcard.h"
+
 
 void setup() {
   // Serial
   Serial.begin(115200);
   Serial.println();
-  delay(3000);
 
   // Buttons, etc.
   encoder.setPosition(0);
@@ -127,24 +133,20 @@ void setup() {
 
   // Audio player
   playlist = new Playlist(output, 10);
+  btPlayer = new BluetoothPlayer(playlist);
 
   // Menu definition
-  bluetoothMenu = new ButtonMenu(bluetoothPrev, bluetoothNext, bluetoothPlayPause);
-  bluetoothMenu->setEnterCallback(activateBluetooth);
-  bluetoothMenu->setLeaveCallback(deactivateRadios);
 
   // TODO: album menu is a dynamic menu
   // TODO: track menu is a dynamic menu as a submenu of album
   // TODO: webradio is a dynamic menu
-  mainMenu = new Menu();
   MenuItem *mainMenuItems[] = {
     new MenuItem("sd", "/system/sd.mp3", albumMenu, NULL),
     new MenuItem("radio", "/system/webradio.mp3", webradioMenu, NULL),
-    new MenuItem("bluetooth", "/system/bluetooth.mp3", bluetoothMenu, NULL),
+    new MenuItem("bluetooth", "/system/bluetooth.mp3", btPlayer->makeMenu(), NULL),
     NULL
   };
-
-  mainMenu->setItems(mainMenuItems);
+  mainMenu = new Menu(mainMenuItems);
   mainMenu->setDisplayUpdateCallback(debugMenu);
   mainMenu->setAudioAnnounceCallback(announceMenu);
 }
@@ -169,70 +171,12 @@ void loop() {
 }
 
 
-// 
-// Bluetooth specific functionality
-//
-
-void bluetoothPrev() {
-  if (a2dpSink) {
-    a2dpSink->previous();
-  }
-}
-
-void bluetoothNext() {
-  if (a2dpSink) {
-    a2dpSink->next();
-  }
-}
-
-void bluetoothPlayPause() {
-  if (a2dpSink) {
-    a2dpSink->pause();
-  }
-}
-
-void activateBluetooth(Menu *item) {
-    // switch to bluetooth mode
-    Serial.println("Disabling Wifi");
-    WiFi.disconnect();
-    WiFi.softAPdisconnect(true);
-    WiFi.mode(WIFI_MODE_NULL);
-    
-    Serial.println("Enabling Bluetooth");
-    playlist->stopAndClear();
-    vTaskDelay(10);
-    playlist->freeAllBuffers();
-
-    Serial.println("A2DP enable");
-    a2dpSink = new BluetoothA2DPSink();
-    i2s_pin_config_t cfg = {
-      .mck_io_num = I2S_PIN_NO_CHANGE,
-      .bck_io_num = 13,
-      .ws_io_num = 26,
-      .data_out_num = 14,
-      .data_in_num = I2S_PIN_NO_CHANGE
-    };
-    a2dpSink->set_pin_config(cfg);
-    a2dpSink->set_mono_downmix(true);
-    a2dpSink->set_volume(0x0f);
-    a2dpSink->start("LittleBox");
-}
-
 //
 // Webradio specific functionality
 //
 
 void activateWifi(Menu *item) {
     // TODO: read wifi config from SD
-    Serial.println("Disabling Bluetooth");
-    if (a2dpSink) {
-      a2dpSink->stop();
-      vTaskDelay(20);
-      delete a2dpSink;
-      a2dpSink = NULL;
-    }
-    btStop();
-
     // activate wifi
     Serial.println("Enabling Wifi");
     WiFi.disconnect();
@@ -244,26 +188,6 @@ void activateWifi(Menu *item) {
         Serial.printf_P(PSTR("...Connecting to WiFi\n"));
         delay(1000);
     }
-}
-
-//
-// SD-Card playback specific functionality
-// 
-
-void deactivateRadios(Menu *item) {
-    Serial.println("Disabling Bluetooth");
-    if (a2dpSink) {
-      a2dpSink->stop();
-      vTaskDelay(20);
-      delete a2dpSink;
-      a2dpSink = NULL;
-    }
-    btStop();
-
-    Serial.println("Disabling Wifi");
-    WiFi.disconnect();
-    WiFi.softAPdisconnect(true);
-    WiFi.mode(WIFI_MODE_NULL);
 }
 
 //
