@@ -1,3 +1,4 @@
+#include "esp_heap_caps.h"
 #include "playlist.h"
 #include <SD.h>
 
@@ -5,15 +6,12 @@
 #include "AudioFileSourceBuffer.h"
 #include "AudioFileSourceID3.h"
 #include "AudioFileSourceSD.h"
-#include "AudioGeneratorMP3.h"
-//#include "AudioGeneratorMP3a.h"
-#include "AudioGeneratorAAC.h"
+#include "AudioGeneratorMP3a.h"
+#include "AudioGeneratorOpus.h"
 
-const int maxFilenameLength = 64;
-const int preallocateBufferSize = 16*1024;
-const int preallocateCodecSize = 85332; // AAC+SBR codec max mem needed
+const int maxFilenameLength = 256;
+const int preallocateBufferSize = 8*1024;
 
-void playbackTaskLoop(void *parameter);
 void metadataCallback(void *cbData, const char *type, bool isUnicode, const char *string);
 void statusCallback(void *cbData, int code, const char *string);
 
@@ -36,7 +34,11 @@ Playlist::Playlist(AudioOutput *output, int maxEntries) {
     this->state = PlaybackStateStopped;
 
     this->preallocateBuffer = NULL;
-    this->preallocateCodec = NULL;
+    this->base = NULL;
+    this->source = NULL;
+    this->decoder = NULL;
+    this->endCallback = NULL;
+    this->endContext = NULL;
 }
 
 Playlist::~Playlist() {
@@ -44,15 +46,16 @@ Playlist::~Playlist() {
         free(this->itemRingbuffer[i]);
     }
     free(this->itemRingbuffer);
-    free(this->preallocateBuffer);
-    free(this->preallocateCodec);
+    if (this->preallocateBuffer) {
+        free(this->preallocateBuffer);
+    }
 }
 
 void Playlist::freeAllBuffers() {
-    free(this->preallocateBuffer);
-    free(this->preallocateCodec);
-    this->preallocateBuffer = NULL;
-    this->preallocateCodec = NULL;
+    if (this->preallocateBuffer) {
+        free(this->preallocateBuffer);
+        this->preallocateBuffer = NULL;
+    }
 }
 
 bool Playlist::addFilename(const char *filename) {
@@ -68,7 +71,7 @@ bool Playlist::addFilename(const char *filename) {
         return false;
     }
 
-    if (this->writeMarker == this->readMarker) {
+    if (this->writeMarker == this->readMarker - 1) {
         // Buffer full
         Serial.println("Buffer full");
         xSemaphoreGive(this->ringBufferMutex);
@@ -102,12 +105,17 @@ char* Playlist::consumeItem() {
         return NULL;
     }
 
-    char *item = strdup(this->itemRingbuffer[this->readMarker]);
-    this->readMarker++;
-    if (this->readMarker >= this->ringbufferSize) {
-        this->readMarker = 0;
+    char *item = NULL;
+    if (this->readMarker >= 0) {
+        item = this->itemRingbuffer[this->readMarker];
+        this->readMarker++;
+        if (this->readMarker >= this->ringbufferSize) {
+            this->readMarker = 0;
+        }
+    } else {
+        xSemaphoreGive(this->ringBufferMutex);
+        return NULL;
     }
-
     xSemaphoreGive(this->ringBufferMutex);
 
     Serial.printf_P(PSTR("Consume '%s'\n"), item);
@@ -119,25 +127,35 @@ PlaybackState Playlist::getState() {
 }
 
 void Playlist::play() {
-    Serial.println("Play");
+    if (this->state == PlaybackStateReset) {
+        // wait for reset to finish
+        Serial.println("Waiting for reset...");
+        return;
+    }
     if (this->state == PlaybackStateSkipping) {
+        Serial.println("Switching from skipping to playing...");
         this->state = PlaybackStatePlaying;
         return;
     }
     if (this->state == PlaybackStatePlaying) {
+        Serial.println("Already playing...");
         return;
     }
+
+    Serial.println("Play...");
     this->state = PlaybackStatePlaying;
-    xTaskCreate(playbackTaskLoop, "playback", 5000, this, 12, &this->playbackTask);
 }
 
 void Playlist::pause() {
-    Serial.println("Pause");
     if (this->state == PlaybackStatePlaying) {
+        Serial.println("Pausing...");
         this->state = PlaybackStatePaused;
+        return;
     }
     if (this->state == PlaybackStatePaused) {
+        Serial.println("Restarting Playback...");
         this->state = PlaybackStatePlaying;
+        return;
     }
 }
 
@@ -157,79 +175,191 @@ void Playlist::stopAndClear() {
 
     this->readMarker = -1;
     this->writeMarker = 0;
-    this->state = PlaybackStateStopped;
+    this->state = PlaybackStateReset;
+    this->endCallback = NULL;
+    this->endContext = NULL;
 
     xSemaphoreGive(this->ringBufferMutex);
     vTaskDelay(100);
 }
 
-AudioFileSource* Playlist::getAudioFileSourceForFile(const char *filename) {    
-    if (strcasecmp(".mp3", filename + strlen(filename) - 4) == 0) {
-        // MP3 file, get an ID3 source
-        Serial.println("MP3");
-        AudioFileSourceSD *sdSource = new AudioFileSourceSD(filename);
-        AudioFileSourceID3 *id3Source = new AudioFileSourceID3(sdSource);
-        // id3Source->RegisterMetadataCB(metadataCallback, (void*)"ID3TAG");
+void Playlist::registerPlaylistEndCallback(void (*callback)(void *), void *context) {
+    this->endCallback = callback;
+    this->endContext = context;
+}
 
-        Serial.printf_P(PSTR("File '%s' is MP3, source created\n"), filename);
-        return id3Source;
-    }
+
+bool Playlist::setupAudioSourceForFile(const char *filename) {
     if (strncmp("http://", filename, 7) == 0) {
-        // Webradio link
+        // Webradio station
         if (!this->preallocateBuffer) {
             this->preallocateBuffer = reinterpret_cast<char *>(malloc(preallocateBufferSize));
         }
-        AudioFileSourceICYStream *source = new AudioFileSourceICYStream(filename);
-        source->RegisterMetadataCB(metadataCallback, NULL);
-        AudioFileSourceBuffer *buff = new AudioFileSourceBuffer(source, this->preallocateBuffer, preallocateBufferSize);
-        buff->RegisterStatusCB(statusCallback, NULL);
-
-        Serial.printf_P(PSTR("URL '%s' is Webradio, source created\n"), filename);
-        return buff;
+        this->base = new AudioFileSourceICYStream(filename);
+        this->base->RegisterMetadataCB(metadataCallback, NULL);
+        if (this->base == NULL) return false;
+        this->source = new AudioFileSourceBuffer(this->base, this->preallocateBuffer, preallocateBufferSize);
+        this->source->RegisterStatusCB(statusCallback, NULL);
+        if (this->source == NULL) {
+            this->base->close();
+            delete this->base;
+            this->base = NULL;
+            return false;
+        }
+        return true;
     }
-    return NULL;
-}
-
-AudioGenerator* Playlist::getDecoderForFile(const char *filename) {
     if (strcasecmp(".mp3", filename + strlen(filename) - 4) == 0) {
-        if (!this->preallocateCodec) {
-            this->preallocateCodec = reinterpret_cast<char *>(malloc(preallocateCodecSize));
+        // MP3 file, get an ID3 source
+        if (this->preallocateBuffer) {
+            free(this->preallocateBuffer);
+            this->preallocateBuffer = NULL;
         }
-        // MP3 file, get the MP3 decoder ready
-        AudioGeneratorMP3 *mp3Decoder = new AudioGeneratorMP3(this->preallocateCodec, preallocateCodecSize);
-        mp3Decoder->RegisterStatusCB(statusCallback, NULL);
-        Serial.printf_P(PSTR("File '%s' is MP3, decoder created\n"), filename);
-        return mp3Decoder;
+        this->base = new AudioFileSourceSD(filename);
+        if (this->base == NULL) return false;
+        this->source = new AudioFileSourceID3(this->base);
+        if (this->source == NULL) {
+            this->base->close();
+            delete this->base;
+            this->base = NULL;
+            return false;
+        }
+        this->source->RegisterMetadataCB(metadataCallback, (void*)"ID3TAG");
+
+        Serial.printf_P(PSTR("File '%s' is MP3, source created\n"), filename);
+        return true;
     }
-    if (strncmp("http://", filename, 7) == 0) {
-        if (!this->preallocateCodec) {
-            this->preallocateCodec = reinterpret_cast<char *>(malloc(preallocateCodecSize));
+    if (strcasecmp(".opus", filename + strlen(filename) - 5) == 0) {
+        // Opus file
+        if (this->preallocateBuffer) {
+            free(this->preallocateBuffer);
+            this->preallocateBuffer = NULL;
         }
-        // Webradio link
-        bool aac = (strcasecmp("type=aac", filename + strlen(filename) - 8) == 0);
-        AudioGenerator *decoder = NULL;
-        if (aac) {
-            decoder = new AudioGeneratorAAC(preallocateCodec, preallocateCodecSize);
-            Serial.printf_P(PSTR("URL '%s' is AAC Webradio, decoder created\n"), filename);
-        } else {
-            decoder = new AudioGeneratorMP3(preallocateCodec, preallocateCodecSize);
-            Serial.printf_P(PSTR("URL '%s' is MP3 Webradio, decoder created\n"), filename);
+        this->base = NULL;
+        this->source = new AudioFileSourceSD(filename);
+        if (this->source == NULL) {
+            return false;
         }
-        decoder->RegisterStatusCB(statusCallback, NULL);
-        return decoder;
+        Serial.printf_P(PSTR("File '%s' is Opus, source created\n"), filename);
+        return true;
     }
-    return NULL;
+
+    return false;
 }
 
-AudioOutput* Playlist::getOutput() {
-    return this->output;
+bool Playlist::setupDecoderForFile(const char *filename) {
+    if ((strcasecmp(".mp3", filename + strlen(filename) - 4) == 0) || (strncmp("http://", filename, 7) == 0)) {
+        this->decoder = new AudioGeneratorMP3a();
+        if (this->decoder == NULL) {
+            return false;
+        }
+        this->decoder->RegisterStatusCB(statusCallback, NULL);
+        Serial.printf_P(PSTR("'%s' is MP3, decoder created\n"), filename);
+        return true;
+    }
+    if (strcasecmp(".opus", filename + strlen(filename) - 5) == 0) {
+        this->decoder = new AudioGeneratorOpus();
+        if (this->decoder == NULL) {
+            return false;
+        }
+        this->decoder->RegisterStatusCB(statusCallback, NULL);
+        Serial.printf_P(PSTR("'%s' is Opus, decoder created\n"), filename);
+        return true;
+    }
+    return false;
 }
 
+void Playlist::destroyAudioChain() {
+    if (this->decoder) {
+        if (this->decoder->isRunning()) {
+            this->decoder->stop();
+        }
+        delete this->decoder;
+        this->decoder = NULL;
+    }
+    if (this->source) {
+        this->source->close();
+        delete this->source;
+        this->source = NULL;
+    }
+    if (this->base) {
+        this->base->close();
+        delete this->base;
+        this->base = NULL;
+    }
+}
+
+void Playlist::loop() {
+    bool closeCurrentItem = false;
+
+    if ((this->decoder == NULL) && (this->state != PlaybackStateStopped) && (this->state != PlaybackStateReset)) {
+        char *filename = this->consumeItem();
+        if (filename == NULL) {
+            if (this->state != PlaybackStateStopped) {
+                Serial.println("All items played!");
+                this->state = PlaybackStateStopped;
+                if (this->endCallback) {
+                    this->endCallback(this->endContext);
+                    this->endCallback = NULL;
+                    this->endContext = NULL;
+                }
+            }
+            return;
+        }
+
+        if (!this->setupAudioSourceForFile(filename)) {
+            Serial.println("Could not create source, bailing out");
+            this->destroyAudioChain();
+            return;
+        }
+        
+        if (!this->setupDecoderForFile(filename)) {
+            Serial.println("Could not create decoder, bailing out");
+            this->destroyAudioChain();
+            return;
+        }
+        this->decoder->begin(this->source, this->output);
+    }
+
+    switch (this->state) {
+        case PlaybackStateReset:
+            if ((this->decoder) && (this->decoder->isRunning())) {
+                Serial.println("Responding to playback reset...");
+            }
+            this->destroyAudioChain();
+            this->state = PlaybackStatePlaying;
+            break;
+        case PlaybackStateStopped:
+            if ((this->decoder) && (this->decoder->isRunning())) {
+                Serial.println("Responding to playback stop...");
+            }
+            this->destroyAudioChain();
+            break;
+        case PlaybackStateSkipping:
+            Serial.println("Responding to skip...");
+            this->destroyAudioChain();
+            this->state = PlaybackStatePlaying;
+            break;
+        case PlaybackStatePaused:
+            return; // Do nothing
+        case PlaybackStatePlaying:
+            if (this->decoder) {
+                if (this->decoder->isRunning()) {
+                    if (!this->decoder->loop()) {
+                        Serial.println("Playback finished.");
+                        this->destroyAudioChain();
+                    }
+                } else {
+                    Serial.println("Playback finished.");
+                    this->destroyAudioChain();
+                }
+            }
+            break;
+    }
+}
 
 //
 // Audio player implementation
 //
-
 
 void metadataCallback(void *cbData, const char *type, bool isUnicode, const char *string) {
     (void)cbData;
@@ -254,126 +384,4 @@ void statusCallback(void *cbData, int code, const char *string) {
     const char *ptr = reinterpret_cast<const char *>(cbData);
     (void) ptr;
     Serial.printf("status: %d '%s'\n", code, string);
-}
-
-void playbackTaskLoop(void *parameter) {
-    const TickType_t loopDelay = 4 / portTICK_PERIOD_MS;
-    const TickType_t mutexDelay = 2 / portTICK_PERIOD_MS;
-    Playlist *playlist = (Playlist *)parameter;
-
-    Serial.println("Playback task started...");
-
-    char *filename = playlist->consumeItem();
-    if (filename == NULL) {
-        return;
-    }
-
-    AudioFileSource *source = playlist->getAudioFileSourceForFile(filename);
-    if (!source) {
-        Serial.println("Could not create source, bailing out");
-        Serial.println("Playback task finished");
-        vTaskDelete(NULL);
-        return;
-    }
-    AudioGenerator *decoder = playlist->getDecoderForFile(filename);
-    decoder->begin(source, playlist->getOutput());
-
-    while (decoder) {
-        PlaybackState state = playlist->getState();
-
-        if (state == PlaybackStateStopped) {
-            Serial.println("Responding to playback stop...");
-
-            if ((decoder) && (decoder->isRunning())) {
-                decoder->stop();
-            }
-            delete decoder;
-            decoder = NULL;
-
-            source->close();
-            delete source;
-            source = NULL;
-
-            free(filename);
-
-            vTaskDelay(loopDelay);
-            continue;
-        }
-
-        if (state == PlaybackStateSkipping) {
-            Serial.println("Responding to skip...");
-
-            if ((decoder) && (decoder->isRunning())) {
-                decoder->stop();
-            }
-            delete decoder;
-            decoder = NULL;
-
-            source->close();
-            delete source;
-            source = NULL;
-
-            free(filename);
-
-            filename = playlist->consumeItem();
-            if (filename) {
-                source = playlist->getAudioFileSourceForFile(filename);
-                if (!source) {
-                    Serial.println("Could not create source, bailing out");
-                    break;
-                }
-                decoder = playlist->getDecoderForFile(filename);
-                decoder->begin(source, playlist->getOutput());
-            } else {
-                playlist->stopAndClear();
-            }
-
-            playlist->play();
-
-            vTaskDelay(loopDelay);
-            continue;
-        }
-
-        if (state == PlaybackStatePaused) {
-            Serial.println("pause");
-            vTaskDelay(loopDelay);
-            continue;
-        }
-
-        if ((decoder) && (decoder->isRunning())) {
-            if (!decoder->loop()) {
-                decoder->stop();
-                source->close();
-
-                delete decoder;
-                delete source;
-
-                decoder = NULL;
-                source = NULL;
-
-                Serial.println("Item playback finished");
-
-                // check if next playlist item is available
-                free(filename);
-                filename = playlist->consumeItem();
-                if (filename) {
-                    source = playlist->getAudioFileSourceForFile(filename);
-                    if (!source) {
-                        Serial.println("Could not create source, bailing out");
-                        break;
-                    }
-                    decoder = playlist->getDecoderForFile(filename);
-                    decoder->begin(source, playlist->getOutput());
-                } else {
-                    Serial.println("Playback finished");
-                    playlist->stopAndClear();
-                }
-            }
-        }
-
-        vTaskDelay(loopDelay);
-    }
-
-    vTaskDelete(NULL);
-    Serial.println("Playback task finished");
 }

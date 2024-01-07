@@ -8,7 +8,8 @@ typedef enum _PlaybackState {
     PlaybackStateStopped = 0,
     PlaybackStatePlaying = 1,
     PlaybackStatePaused = 2,
-    PlaybackStateSkipping = 3
+    PlaybackStateSkipping = 3,
+    PlaybackStateReset = 4
 } PlaybackState;
 
 class Playlist {
@@ -24,13 +25,19 @@ class Playlist {
         void stopAndClear();
         void freeAllBuffers();
 
-        // Internal
-        char *consumeItem();
-        AudioGenerator *getDecoderForFile(const char *filename);
-        AudioFileSource *getAudioFileSourceForFile(const char *filename);
-        AudioOutput *getOutput();
+        void loop();
+
+        void registerPlaylistEndCallback(void (*callback)(void *context), void *context);
 
     private:
+        char *consumeItem();
+        bool setupDecoderForFile(const char *filename);
+        bool setupAudioSourceForFile(const char *filename);
+        void destroyAudioChain();
+
+        AudioFileSource *base;
+        AudioFileSource *source;
+        AudioGenerator *decoder;
         AudioOutput *output;
         char **itemRingbuffer;
         int ringbufferSize;
@@ -40,7 +47,8 @@ class Playlist {
         PlaybackState state;
         TaskHandle_t playbackTask;
         char *preallocateBuffer;
-        char *preallocateCodec;
+        void (*endCallback)(void *);
+        void *endContext;
 };
 
 #endif

@@ -4,9 +4,9 @@
 // MenuItem implementation
 //
 
-MenuItem::MenuItem(const char *title, const char *audioFilename, Menu *submenu, void (*callback)(MenuItem *)) {
+MenuItem::MenuItem(const char *title, const char *audioFilename, Menu *submenu, void (*callback)(MenuItem *), void *context) {
     if (title) {
-        this->title = strdup(title);
+        this->title = title;
     } else {
         this->title = NULL;
     }
@@ -17,14 +17,12 @@ MenuItem::MenuItem(const char *title, const char *audioFilename, Menu *submenu, 
     }
     this->submenu = submenu;
     this->callback = callback;
+    this->context = context;
 }
 
 MenuItem::~MenuItem() {
     if (submenu) {
         delete submenu;
-    }
-    if (title) {
-        free(title);
     }
     if (audioFilename) {
         free(audioFilename);
@@ -35,10 +33,7 @@ Menu* MenuItem::call() {
     if (this->callback) {
         this->callback(this);
     }
-    if (this->submenu) {
-        return this->submenu;
-    }
-    return NULL;
+    return this->submenu;
 }
 
 const char* MenuItem::getDisplayTitle() {
@@ -53,6 +48,10 @@ Menu* MenuItem::getSubmenu() {
     return this->submenu;
 }
 
+void* MenuItem::getContext() {
+    return this->context;
+}
+
 //
 // Menu Implementation
 //
@@ -63,6 +62,10 @@ Menu::Menu(MenuItem **items, void *context) {
     this->state = StateInMenu;
     this->context = context;
     this->selectedItem = -1;
+    this->displayCallback = NULL;
+    this->audioCallback = NULL;
+    this->enterCallback = NULL;
+    this->leaveCallback = NULL;
 
     if (items) {
         this->setItems(items);
@@ -104,11 +107,6 @@ void Menu::setItems(MenuItem **items) {
     this->items = (MenuItem**)malloc(sizeof(MenuItem*) * numItems);
     for(int i = 0; i < numItems; i++) {
         this->items[i] = items[i];
-
-        Menu *submenu = items[i]->getSubmenu();
-        if (submenu) {
-            submenu->state = StateUnknown;
-        }
     }
 
     // reset state
@@ -137,6 +135,21 @@ MenuItem* Menu::getItem(int index) {
         return NULL;
     }
     return this->items[index];
+}
+
+int Menu::indexOfItem(MenuItem *item) {
+    MenuItem *currentItem = this->items[0];
+    int index = 0;
+
+    while (currentItem) {
+        if (currentItem == item) {
+            return index;
+        }
+        index++;
+        currentItem = this->items[index];
+    }
+
+    return -1;
 }
 
 MenuItem* Menu::selectNextItem() {
@@ -206,6 +219,11 @@ Menu* Menu::enterItem() {
 
     Serial.printf_P(PSTR("Enter item: current = %d, state = %d\n"), this->selectedItem, this->state);
 
+    if (this->state == StateInSubmenu) {
+        Menu *mySubmenu = this->items[this->selectedItem]->getSubmenu();
+        submenu = mySubmenu->enterItem();
+    }
+
     if (this->state == StateInMenu) {
         submenu = this->items[this->selectedItem]->call();
         if (submenu) {
@@ -215,20 +233,19 @@ Menu* Menu::enterItem() {
             }
         }
     }
-    if (this->state == StateInSubmenu) {
-        Menu *mySubmenu = this->items[this->selectedItem]->getSubmenu();
-        submenu = mySubmenu->enterItem();
-    }
 
     // run callbacks to update UI
     if (submenu) {
         MenuItem *firstItem = submenu->getItem(0);
-        // run callbacks to update UI
-        if (this->displayCallback) {
-            this->displayCallback(firstItem->getDisplayTitle());
-        }
-        if (this->audioCallback) {
-            this->audioCallback(firstItem->getAudioFile());
+
+        if (firstItem) { // may fail for button menus
+            // run callbacks to update UI
+            if (this->displayCallback) {
+                this->displayCallback(firstItem->getDisplayTitle());
+            }
+            if (this->audioCallback) {
+                this->audioCallback(firstItem->getAudioFile());
+            }
         }
     }
 
@@ -239,14 +256,16 @@ Menu* Menu::leaveItem() {
     Serial.printf_P(PSTR("Leave item: current = %d, state = %d\n"), this->selectedItem, this->state);
 
     if (this->state == StateInMenu) {
-        this->state = StateUnknown;
         this->selectedItem = 0;
     }
 
     if (this->state == StateInSubmenu) {
         MenuItem *item = NULL;
+        Serial.printf(" - In submenu %s\n", this->items[this->selectedItem]->getDisplayTitle());
         Menu *submenu = this->items[this->selectedItem]->getSubmenu();
+        Serial.printf(" - Sub item %d\n", submenu);
         Menu *newMenu = submenu->leaveItem();
+        Serial.printf(" - New menu %d\n", newMenu);
         if (!newMenu) {
             this->state = StateInMenu;
             item = this->items[this->selectedItem];
@@ -279,6 +298,14 @@ ButtonMenu::ButtonMenu(void (*prev)(Menu *menu), void (*next)(Menu *menu), void 
     this->prevCallback = prev;
     this->nextCallback = next;
     this->enterCallback = enter;
+    this->leaveCallback = NULL;
+}
+
+ButtonMenu::ButtonMenu(void (*prev)(Menu *menu), void (*next)(Menu *menu), void (*enter)(Menu *menu), bool (*leave)(Menu *menu), void *context): Menu(context) {
+    this->prevCallback = prev;
+    this->nextCallback = next;
+    this->enterCallback = enter;
+    this->leaveCallback = leave;
 }
 
 ButtonMenu::~ButtonMenu() {
@@ -300,10 +327,31 @@ MenuItem* ButtonMenu::selectPreviousItem() {
     return NULL;
 }
 
-Menu * ButtonMenu::enterItem() {
+Menu* ButtonMenu::enterItem() {
     if (this->enterCallback) {
         this->enterCallback(this);
     }
 
     return NULL;
+}
+
+Menu* ButtonMenu::leaveItem() {
+    Serial.println("Buttonmenu leave");
+    if (this->leaveCallback) {
+        bool leave = this->leaveCallback(this);
+        if (leave) {
+            return NULL;
+        } else {
+            return this;
+        }
+    }
+    return NULL;
+}
+
+MenuItem* ButtonMenu::getItem(int index) {
+    return NULL;
+}
+
+int ButtonMenu::indexOfItem(MenuItem *item) {
+    return 0;
 }

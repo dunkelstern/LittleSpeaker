@@ -5,9 +5,8 @@
 #include <SD.h>
 
 typedef enum _MenuState {
-    StateUnknown = 0,
-    StateInMenu = 1,
-    StateInSubmenu = 2
+    StateInMenu = 0,
+    StateInSubmenu = 1
 } MenuState;
 
 class MenuItem;
@@ -24,7 +23,8 @@ class Menu {
     ~Menu();
 
     void setItems(MenuItem **item); // close off menu with NULL value
-    MenuItem *getItem(int index);
+    virtual MenuItem *getItem(int index);
+    virtual int indexOfItem(MenuItem *item);
 
     virtual MenuItem *selectNextItem();
     virtual MenuItem *selectPreviousItem();
@@ -55,31 +55,26 @@ class Menu {
 };
 
 //
-// A dynamically defined menu which generates it's items by calling into
-// a callback function. One example would be a menu of files on an SD card
-// with probably many files on it.
-//
-class DynamicMenu: public Menu {
-    DynamicMenu(MenuItem *(*makeMenuItem)(int index, void *param), void *param);
-    ~DynamicMenu();
-};
-
-//
 // A button menu which reacts to button presses directly without any menu items.
 //
 class ButtonMenu: public Menu {
     public:
         ButtonMenu(void (*prev)(Menu *menu), void (*next)(Menu *menu), void (*enter)(Menu *menu), void *context = NULL);
+        ButtonMenu(void (*prev)(Menu *menu), void (*next)(Menu *menu), void (*enter)(Menu *menu), bool (*leave)(Menu *menu) = NULL, void *context = NULL);
         ~ButtonMenu();
 
         MenuItem *selectNextItem() override;
         MenuItem *selectPreviousItem() override;
         Menu *enterItem() override;
+        Menu *leaveItem() override;
+        MenuItem *getItem(int index) override;
+        int indexOfItem(MenuItem *item) override;
 
     private:
         void (*prevCallback)(Menu *menu);
         void (*nextCallback)(Menu *menu);
         void (*enterCallback)(Menu *menu);
+        bool (*leaveCallback)(Menu *menu);
 };
 
 //
@@ -89,20 +84,22 @@ class ButtonMenu: public Menu {
 //
 class MenuItem {
   public:
-    MenuItem(const char *title, const char *audioFilename, Menu *submenu = NULL, void (*callback)(MenuItem *) = NULL);
-    MenuItem(const char *title, const char *audioFilename, Menu *submenu) : MenuItem(title, audioFilename, submenu, NULL) {};
-    MenuItem(const char *title, const char *audioFilename, void (*callback)(MenuItem *)) : MenuItem(title, audioFilename, NULL, callback) {};
+    MenuItem(const char *title, const char *audioFilename, Menu *submenu = NULL, void (*callback)(MenuItem *) = NULL, void *context = NULL);
+    MenuItem(const char *title, const char *audioFilename, void (*callback)(MenuItem *)) : MenuItem(title, audioFilename, NULL, callback, NULL) {};
+    MenuItem(const char *title, const char *audioFilename, void (*callback)(MenuItem *), void *context) : MenuItem(title, audioFilename, NULL, callback, context) {};
     ~MenuItem();
 
     Menu *call();
     const char *getDisplayTitle();
     const char *getAudioFile();
     Menu *getSubmenu();
+    void *getContext();
 
   private:
-    char *title;
+    const char *title;
     char *audioFilename;
     Menu *submenu;
+    void *context;
     void (*callback)(MenuItem *item);
 };
 
