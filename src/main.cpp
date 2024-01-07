@@ -64,9 +64,6 @@ void debugMenu(const char *text);
 void announceMenu(const char *filename);
 
 Menu *mainMenu = NULL;
-Menu *albumMenu = NULL;
-Menu *webradioMenu = NULL;
-ButtonMenu *bluetoothMenu = NULL;
 
 //
 // AUDIO PLAYBACK
