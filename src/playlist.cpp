@@ -298,8 +298,9 @@ void Playlist::loop() {
                 Serial.println("All items played!");
                 this->state = PlaybackStateStopped;
                 if (this->endCallback) {
-                    this->endCallback(this->endContext);
+                    void (*savedCallback)(void *context) = this->endCallback;
                     this->endCallback = NULL;
+                    savedCallback(this->endContext);
                     this->endContext = NULL;
                 }
             }
