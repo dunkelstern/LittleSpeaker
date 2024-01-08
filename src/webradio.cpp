@@ -91,6 +91,7 @@ void WebradioPlayer::play(int index) {
 
     // Add url to playlist and start playback
     this->playlist->addFilename(buffer);
+    this->playlist->addFilename("/system/connection_failed.mp3");
     this->playlist->play();
 }
 
@@ -129,6 +130,8 @@ void WebradioPlayer::next() {
 void WebradioPlayer::pause() {
     if ((this->playlist->getState() == PlaybackStatePlaying) || (this->playlist->getState() == PlaybackStatePaused)) {
         this->playlist->stopAndClear();
+        this->playlist->addFilename("/system/stopped.mp3");
+        this->playlist->play();
     } else {
         this->play(this->currentItem);
     }
@@ -166,6 +169,7 @@ void activateWifi(Menu *menu) {
     File file = SD.open("/wifi.txt");
     if (!file) {
         Serial.println("No wifi.txt found");
+        return;
     }
 
     // parse wifi file
