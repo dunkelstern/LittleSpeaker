@@ -7,10 +7,9 @@
 #include "AudioFileSourceID3.h"
 #include "AudioFileSourceSD.h"
 #include "AudioGeneratorMP3a.h"
-#include "AudioGeneratorOpus.h"
 
 const int maxFilenameLength = 256;
-const int preallocateBufferSize = 8*1024;
+const int preallocateBufferSize = 6*1024;
 
 void metadataCallback(void *cbData, const char *type, bool isUnicode, const char *string);
 void statusCallback(void *cbData, int code, const char *string);
@@ -228,21 +227,6 @@ bool Playlist::setupAudioSourceForFile(const char *filename) {
         Serial.printf_P(PSTR("File '%s' is MP3, source created\n"), filename);
         return true;
     }
-    if (strcasecmp(".opus", filename + strlen(filename) - 5) == 0) {
-        // Opus file
-        if (this->preallocateBuffer) {
-            free(this->preallocateBuffer);
-            this->preallocateBuffer = NULL;
-        }
-        this->base = NULL;
-        this->source = new AudioFileSourceSD(filename);
-        if (this->source == NULL) {
-            return false;
-        }
-        Serial.printf_P(PSTR("File '%s' is Opus, source created\n"), filename);
-        return true;
-    }
-
     return false;
 }
 
@@ -254,15 +238,6 @@ bool Playlist::setupDecoderForFile(const char *filename) {
         }
         this->decoder->RegisterStatusCB(statusCallback, NULL);
         Serial.printf_P(PSTR("'%s' is MP3, decoder created\n"), filename);
-        return true;
-    }
-    if (strcasecmp(".opus", filename + strlen(filename) - 5) == 0) {
-        this->decoder = new AudioGeneratorOpus();
-        if (this->decoder == NULL) {
-            return false;
-        }
-        this->decoder->RegisterStatusCB(statusCallback, NULL);
-        Serial.printf_P(PSTR("'%s' is Opus, decoder created\n"), filename);
         return true;
     }
     return false;
