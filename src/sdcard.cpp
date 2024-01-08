@@ -302,7 +302,7 @@ void SDPlayer::play(int8_t albumIndex, int16_t trackIndex, bool reset) {
 }
 
 
-void SDPlayer::previous() {
+bool SDPlayer::previous(bool announce, bool loop) {
     if (this->playlist->getState() == PlaybackStatePaused) {
         this->playlist->stopAndClear();
     }
@@ -312,21 +312,33 @@ void SDPlayer::previous() {
     if (this->state == SDStateAlbumMenu) {
         this->currentAlbum--;
         if (this->currentAlbum < 0) {
-            this->currentAlbum = this->maxAlbum - 1;
+            if (loop) {
+                this->currentAlbum = this->maxAlbum - 1;
+            } else {
+                this->currentAlbum = 0;
+            }
         }
         this->playlist->stopAndClear();
         this->announce(this->currentAlbum, -1);
     } else {
         this->currentTrack--;
         if (this->currentTrack < 0) {
-            this->currentTrack = this->maxTrack - 1;
+            if (loop) {
+                this->currentTrack = this->maxTrack - 1;
+            } else {
+                this->currentTrack = 0;
+                return false;
+            }
         }
-        this->announce(this->currentAlbum, this->currentTrack);
+        if (announce) {
+            this->announce(this->currentAlbum, this->currentTrack);
+        }
         this->play(this->currentAlbum, this->currentTrack, false);
     }
+    return true;
 }
 
-void SDPlayer::next() {
+bool SDPlayer::next(bool announce, bool loop) {
     if (this->playlist->getState() == PlaybackStatePaused) {
         this->playlist->stopAndClear();
     }
@@ -335,17 +347,29 @@ void SDPlayer::next() {
     if (this->state == SDStateAlbumMenu) {
         this->currentAlbum++;
         if (this->currentAlbum >= this->maxAlbum) {
-            this->currentAlbum = 0;
+            if (loop) {
+                this->currentAlbum = 0;
+            } else {
+                this->currentAlbum = this->maxAlbum - 1;
+            }
         }
         this->announce(this->currentAlbum, -1);
     } else {
         this->currentTrack++;
-        if (this->currentTrack >= this->maxTrack) {
+        if (loop) {
             this->currentTrack = 0;
+        } else {
+            this->currentTrack = this->maxTrack - 1;
+            return false;
         }
-        this->announce(this->currentAlbum, this->currentTrack);
+
+        if (announce) {
+            this->announce(this->currentAlbum, this->currentTrack);
+        }
         this->play(this->currentAlbum, this->currentTrack, false);
     }
+
+    return true;
 }
 
 void SDPlayer::pause() {
@@ -439,5 +463,9 @@ void sdEnter(Menu *menu) {
 
 void sdPlaylistEnd(void *context) {
     SDPlayer *player = reinterpret_cast<SDPlayer *>(context);
-    player->next();
+    bool success = player->next(false, false);
+    if (!success) {
+        player->playlist->addFilename("/system/stopped.mp3");
+        player->playlist->play();
+    }
 }

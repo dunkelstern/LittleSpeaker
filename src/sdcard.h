@@ -23,8 +23,8 @@ class SDPlayer {
     
         // Internal for menu handling
         void play(int8_t albumIndex, int16_t trackIndex, bool reset);
-        void previous();
-        void next();
+        bool previous(bool announce = true, bool loop = true);
+        bool next(bool announce = true, bool loop = true);
         void pause();
 
         void reset();
