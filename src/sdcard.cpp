@@ -318,7 +318,6 @@ bool SDPlayer::previous(bool announce, bool loop) {
                 this->currentAlbum = 0;
             }
         }
-        this->playlist->stopAndClear();
         this->announce(this->currentAlbum, -1);
     } else {
         this->currentTrack--;
@@ -356,11 +355,13 @@ bool SDPlayer::next(bool announce, bool loop) {
         this->announce(this->currentAlbum, -1);
     } else {
         this->currentTrack++;
-        if (loop) {
-            this->currentTrack = 0;
-        } else {
-            this->currentTrack = this->maxTrack - 1;
-            return false;
+        if (this->currentTrack >= this->maxTrack) {
+            if (loop) {
+                this->currentTrack = 0;
+            } else {
+                this->currentTrack = this->maxTrack - 1;
+                return false;
+            }
         }
 
         if (announce) {
