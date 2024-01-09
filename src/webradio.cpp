@@ -2,12 +2,12 @@
 #include <SD.h>
 #include <WiFi.h>
 
-void activateWifi(Menu *menu);
-void deactivateWifi(Menu *menu);
+static void activateWifi(Menu *menu);
+static void deactivateWifi(Menu *menu);
 
-void webPrev(Menu *item);
-void webNext(Menu *item);
-void webPlayPause(Menu *item);
+static void webPrev(Menu *item);
+static void webNext(Menu *item);
+static void webPlayPause(Menu *item);
 
 #define MAX_URL_LEN 255
 
@@ -161,7 +161,7 @@ void WebradioPlayer::reset() {
     this->announce(this->currentItem);
 }
 
-void activateWifi(Menu *menu) {
+static void activateWifi(Menu *menu) {
     WebradioPlayer *player = reinterpret_cast<WebradioPlayer *>(menu->getContext());
     char ssid[128] = { 0 };
     char password[128] = { 0 };
@@ -200,24 +200,24 @@ void activateWifi(Menu *menu) {
     player->reset();
 }
 
-void deactivateWifi(Menu *item) {
+static void deactivateWifi(Menu *item) {
     Serial.println("Disabling Wifi");
     WiFi.disconnect();
     WiFi.softAPdisconnect(true);
     WiFi.mode(WIFI_MODE_NULL);
 }
 
-void webPrev(Menu *menu) {
+static void webPrev(Menu *menu) {
     WebradioPlayer *player = reinterpret_cast<WebradioPlayer *>(menu->getContext());
     player->previous();
 }
 
-void webNext(Menu *menu) {
+static void webNext(Menu *menu) {
     WebradioPlayer *player = reinterpret_cast<WebradioPlayer *>(menu->getContext());
     player->next();
 }
 
-void webPlayPause(Menu *menu) {
+static void webPlayPause(Menu *menu) {
     WebradioPlayer *player = reinterpret_cast<WebradioPlayer *>(menu->getContext());
     player->pause();
 }

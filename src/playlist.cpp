@@ -11,8 +11,8 @@
 const int maxFilenameLength = 256;
 const int preallocateBufferSize = 6*1024;
 
-void metadataCallback(void *cbData, const char *type, bool isUnicode, const char *string);
-void statusCallback(void *cbData, int code, const char *string);
+static void metadataCallback(void *cbData, const char *type, bool isUnicode, const char *string);
+static void statusCallback(void *cbData, int code, const char *string);
 
 //
 // Playlist implementation
@@ -337,7 +337,7 @@ void Playlist::loop() {
 // Audio player implementation
 //
 
-void metadataCallback(void *cbData, const char *type, bool isUnicode, const char *string) {
+static void metadataCallback(void *cbData, const char *type, bool isUnicode, const char *string) {
     (void)cbData;
     Serial.printf("metadata for: %s = '", type);
 
@@ -356,7 +356,7 @@ void metadataCallback(void *cbData, const char *type, bool isUnicode, const char
     Serial.flush();
 }
 
-void statusCallback(void *cbData, int code, const char *string) {
+static void statusCallback(void *cbData, int code, const char *string) {
     const char *ptr = reinterpret_cast<const char *>(cbData);
     (void) ptr;
     Serial.printf("status: %d '%s'\n", code, string);

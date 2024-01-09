@@ -2,12 +2,12 @@
 
 #include <SD.h>
 
-void sdPrev(Menu *item);
-void sdNext(Menu *item);
-void sdPlayPause(Menu *item);
-bool sdLeave(Menu *item);
-void sdEnter(Menu *item);
-void sdPlaylistEnd(void *context);
+static void sdPrev(Menu *item);
+static void sdNext(Menu *item);
+static void sdPlayPause(Menu *item);
+static bool sdLeave(Menu *item);
+static void sdEnter(Menu *item);
+static void sdPlaylistEnd(void *context);
 
 
 SDPlayer::SDPlayer(Playlist *playlist) {
@@ -430,22 +430,22 @@ void SDPlayer::setState(SDState newState) {
     this->state = newState;
 }
 
-void sdPrev(Menu *menu) {
+static void sdPrev(Menu *menu) {
     SDPlayer *player = reinterpret_cast<SDPlayer *>(menu->getContext());
     player->previous();
 }
 
-void sdNext(Menu *menu) {
+static void sdNext(Menu *menu) {
     SDPlayer *player = reinterpret_cast<SDPlayer *>(menu->getContext());
     player->next();
 }
 
-void sdPlayPause(Menu *menu) {
+static void sdPlayPause(Menu *menu) {
     SDPlayer *player = reinterpret_cast<SDPlayer *>(menu->getContext());
     player->pause();
 }
 
-bool sdLeave(Menu *menu) {
+static bool sdLeave(Menu *menu) {
     SDPlayer *player = reinterpret_cast<SDPlayer *>(menu->getContext());
     Serial.printf("Leave command in state %d\n", player->getState());
     if (player->getState() == SDStateAlbumMenu) {
@@ -456,12 +456,12 @@ bool sdLeave(Menu *menu) {
     }
 }
 
-void sdEnter(Menu *menu) {
+static void sdEnter(Menu *menu) {
     SDPlayer *player = reinterpret_cast<SDPlayer *>(menu->getContext());
     player->reset();
 }
 
-void sdPlaylistEnd(void *context) {
+static void sdPlaylistEnd(void *context) {
     SDPlayer *player = reinterpret_cast<SDPlayer *>(context);
     bool success = player->next(false, false);
     if (!success) {

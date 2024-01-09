@@ -3,11 +3,11 @@
 
 // FIXME: Pin config as template?
 
-void bluetoothPrev(Menu *item);
-void bluetoothNext(Menu *item);
-void bluetoothPlayPause(Menu *item);
-void activateBluetooth(Menu *item);
-void deactivateBluetooth(Menu *item);
+static void bluetoothPrev(Menu *item);
+static void bluetoothNext(Menu *item);
+static void bluetoothPlayPause(Menu *item);
+static void activateBluetooth(Menu *item);
+static void deactivateBluetooth(Menu *item);
 
 
 BluetoothPlayer::BluetoothPlayer(Playlist *playlist) {
@@ -72,24 +72,22 @@ void BluetoothPlayer::next() {
 void BluetoothPlayer::pause() {
     if (!this->a2dp) return;
     this->a2dp->pause();
-}
-
-void bluetoothPrev(Menu *menu) {
+static void bluetoothPrev(Menu *menu) {
     BluetoothPlayer *player = reinterpret_cast<BluetoothPlayer *>(menu->getContext());
     player->previous();
 }
 
-void bluetoothNext(Menu *menu) {
+static void bluetoothNext(Menu *menu) {
     BluetoothPlayer *player = reinterpret_cast<BluetoothPlayer *>(menu->getContext());
     player->next();
 }
 
-void bluetoothPlayPause(Menu *menu) {
+static void bluetoothPlayPause(Menu *menu) {
     BluetoothPlayer *player = reinterpret_cast<BluetoothPlayer *>(menu->getContext());
     player->pause();
 }
 
-void activateBluetooth(Menu *item) {
+static void activateBluetooth(Menu *item) {
     BluetoothPlayer *player = reinterpret_cast<BluetoothPlayer *>(item->getContext());
 
     // switch to bluetooth mode
@@ -109,7 +107,7 @@ void activateBluetooth(Menu *item) {
     player->makeSink();
 }
 
-void deactivateBluetooth(Menu *item) {
+static void deactivateBluetooth(Menu *item) {
     Serial.println("Disabling Bluetooth");
     BluetoothPlayer *player = reinterpret_cast<BluetoothPlayer *>(item->getContext());
     player->destroySink();

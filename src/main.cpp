@@ -53,15 +53,15 @@ AceButton yellowButton(YELLOW_BTN);
 AceButton blackButton(BLACK_BTN);
 AceButton blueButton(BLUE_BTN);
 
-void handleEvent(AceButton*, uint8_t, uint8_t);
+static void handleEvent(AceButton*, uint8_t, uint8_t);
 
 //
 // MENU
 //
 #include "menu.h"
 
-void debugMenu(const char *text);
-void announceMenu(const char *filename);
+static void debugMenu(const char *text);
+static void announceMenu(const char *filename);
 
 Menu *mainMenu = NULL;
 
@@ -189,17 +189,17 @@ void loop() {
 // Menu UI
 //
 
-void debugMenu(const char *text) {
+static void debugMenu(const char *text) {
     Serial.printf_P(PSTR("Menu item '%s' selected...\n"), text);
 }
 
-void announceMenu(const char *filename) {
+static void announceMenu(const char *filename) {
     playlist->stopAndClear();
     playlist->addFilename(filename);
     playlist->play();
 }
 
-void handleEvent(AceButton* button, uint8_t eventType, uint8_t buttonState) {
+static void handleEvent(AceButton* button, uint8_t eventType, uint8_t buttonState) {
   switch (eventType) {
     case AceButton::kEventClicked:
       if (button->getPin() == ENCODER_BTN) {
