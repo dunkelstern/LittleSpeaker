@@ -140,11 +140,12 @@ void setup() {
   // Audio Stuff
   audioLogger = &Serial;  
 
-  output = new AudioOutputI2S(0, AudioOutputI2S::EXTERNAL_I2S, 12, AudioOutputI2S::APLL_ENABLE);
+  output = new AudioOutputI2S(0, AudioOutputI2S::EXTERNAL_I2S, 10, AudioOutputI2S::APLL_ENABLE);
   output->SetPinout(13, 26, 14);
-  output->SetGain(0.125);
+  output->SetGain(0.33);
 
   eq = new AudioOutputFilter3BandEQ(output, 500, 5000);
+  eq->setBandGains(1.5, 0.9, 1.3);
 
   // Audio player
   playlist = new Playlist(eq, 5);
@@ -185,18 +186,6 @@ void loop() {
       mainMenu->selectNextItem();
     }
     encoder.setPosition(0);
-  }
-
-  static unsigned long lastmillis = 0;
-  static bool on = false;
-  if (millis() >= lastmillis + 5000) {
-    lastmillis = millis();
-    on = on ? false : true;
-    if (on) {
-      eq->setBandGains(1.0, 0.5, 0.7);
-    } else {
-      eq->setBandGains(0.99, 0.99, 0.99);
-    }
   }
 
   playlist->loop();
