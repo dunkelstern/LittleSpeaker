@@ -35,6 +35,9 @@
 #define SPI_SPEED 4000000u
 AudioOutputI2S *output = NULL;
 
+#include "AudioOutputFilter3BandEQ.h"
+AudioOutputFilter3BandEQ *eq = NULL;
+
 // 
 // ENCODER
 //
@@ -109,6 +112,7 @@ void setup() {
   Serial.begin(115200);
   Serial.println();
   esp_err_t error = heap_caps_register_failed_alloc_callback(heap_caps_alloc_failed_hook);
+  delay(2000);
 
   // Turn off everything
   btStop();
@@ -128,6 +132,11 @@ void setup() {
   buttonConfig->setClickDelay(500);
   buttonConfig->setLongPressDelay(1000);
 
+  // SD-Card access
+  if (!SD.begin(22, SPI, SPI_SPEED, "/sd", 5, false)) {
+    Serial.println("SD Card could not be initialized!");
+  }
+
   // Audio Stuff
   audioLogger = &Serial;  
 
@@ -135,13 +144,10 @@ void setup() {
   output->SetPinout(13, 26, 14);
   output->SetGain(0.125);
 
-  // SD-Card access
-  if (!SD.begin(22, SPI, SPI_SPEED, "/sd", 5, false)) {
-    Serial.println("SD Card could not be initialized!");
-  }
+  eq = new AudioOutputFilter3BandEQ(output, 500, 5000);
 
   // Audio player
-  playlist = new Playlist(output, 5);
+  playlist = new Playlist(eq, 5);
   btPlayer = new BluetoothPlayer(playlist);
   webPlayer = new WebradioPlayer(playlist);
   sdPlayer = new SDPlayer(playlist);
@@ -179,6 +185,18 @@ void loop() {
       mainMenu->selectNextItem();
     }
     encoder.setPosition(0);
+  }
+
+  static unsigned long lastmillis = 0;
+  static bool on = false;
+  if (millis() >= lastmillis + 5000) {
+    lastmillis = millis();
+    on = on ? false : true;
+    if (on) {
+      eq->setBandGains(1.0, 0.5, 0.7);
+    } else {
+      eq->setBandGains(0.99, 0.99, 0.99);
+    }
   }
 
   playlist->loop();
