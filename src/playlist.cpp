@@ -1,4 +1,4 @@
-#include "esp_heap_caps.h"
+#include "driver/i2s.h"
 #include "playlist.h"
 #include <SD.h>
 
@@ -302,6 +302,10 @@ void Playlist::loop() {
                 Serial.println("Responding to playback reset...");
             }
             this->destroyAudioChain();
+            // HACK: force remove driver
+            this->output->stop();
+            i2s_driver_uninstall(I2S_NUM_0);
+            this->output->begin();
             this->state = PlaybackStatePlaying;
             break;
         case PlaybackStateStopped:
