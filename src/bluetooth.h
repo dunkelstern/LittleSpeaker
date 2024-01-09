@@ -6,6 +6,11 @@
 #include "menu.h"
 #include "playlist.h"
 
+typedef enum _BTState {
+    BTStateStopped = 0,
+    BTStatePlaying = 1,
+    BTStatePaused = 2
+} BTState;
 
 class BluetoothPlayer {
     public:
@@ -23,9 +28,11 @@ class BluetoothPlayer {
         void next();
         void pause();
 
-    private:
         BluetoothA2DPSink *a2dp;
+        void setState(BTState state);
 
+        private:
+            BTState state;
 };
 
 #endif

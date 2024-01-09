@@ -86,13 +86,14 @@ void BluetoothA2DPSink::end(bool release_memory) {
     // stop I2S
 #if A2DP_I2S_SUPPORT
     if (is_i2s_output){
-        ESP_LOGI(BT_AV_TAG,"uninstall i2s");
-        if (i2s_driver_uninstall(i2s_port) != ESP_OK){
-            ESP_LOGE(BT_AV_TAG,"Failed to uninstall i2s");
-        }
-        else {
-            player_init = false;
-        }
+        // ESP_LOGI(BT_AV_TAG,"uninstall i2s");
+        // if (i2s_driver_uninstall(i2s_port) != ESP_OK){
+        //     ESP_LOGE(BT_AV_TAG,"Failed to uninstall i2s");
+        // }
+        // else {
+        //     player_init = false;
+        // }
+        player_init = false;
     }
 #endif
     log_free_heap();
@@ -114,16 +115,16 @@ void BluetoothA2DPSink::set_i2s_config(i2s_config_t i2s_config){
 
 #endif
 
-void BluetoothA2DPSink::set_stream_reader(void (*callBack)(const uint8_t*, uint32_t), bool is_i2s){
+void BluetoothA2DPSink::set_stream_reader(void (*callBack)(const uint8_t*, uint32_t, void*), bool is_i2s){
   this->stream_reader = callBack;
   this->is_i2s_output = is_i2s;
 }
 
-void BluetoothA2DPSink::set_raw_stream_reader(void (*callBack)(const uint8_t*, uint32_t)){
+void BluetoothA2DPSink::set_raw_stream_reader(void (*callBack)(const uint8_t*, uint32_t, void*)){
     this->raw_stream_reader = callBack;
 }
 
-void BluetoothA2DPSink::set_on_data_received(void (*callBack)()){
+void BluetoothA2DPSink::set_on_data_received(void (*callBack)(void *)){
   this->data_received = callBack;
 }
 
@@ -135,16 +136,20 @@ void BluetoothA2DPSink::set_on_data_received(void (*callBack)()){
 //   this->bt_dis_connected = callBack;
 // }
 
+void BluetoothA2DPSink::set_callback_context(void *context) {
+    this->callbackContext = context;
+}
+
 // kept for backwards compatibility
-void BluetoothA2DPSink::set_on_volumechange(void (*callBack)(int)){
+void BluetoothA2DPSink::set_on_volumechange(void (*callBack)(int, void*)){
   this->bt_volumechange = callBack;
 }
 
-void BluetoothA2DPSink::set_avrc_rn_volumechange(void (*callBack)(int)){
+void BluetoothA2DPSink::set_avrc_rn_volumechange(void (*callBack)(int, void*)){
   this->bt_volumechange = callBack;
 }
 
-void BluetoothA2DPSink::set_avrc_rn_volumechange_completed(void (*callBack)(int)) {
+void BluetoothA2DPSink::set_avrc_rn_volumechange_completed(void (*callBack)(int, void*)) {
     this->avrc_rn_volchg_complete_callback = callBack;
 }
 
@@ -243,6 +248,10 @@ void BluetoothA2DPSink::init_i2s() {
         // setup i2s
         if (i2s_driver_install(i2s_port, &i2s_config, 0, NULL) != ESP_OK) {
             ESP_LOGE(BT_AV_TAG,"i2s_driver_install failed");
+            i2s_driver_uninstall(i2s_port);
+            if (i2s_driver_install(i2s_port, &i2s_config, 0, NULL) != ESP_OK) {
+                printf("i2s_driver re-install failed!\n");
+            }
         } else {
             player_init = false; //reset player
         }
@@ -704,7 +713,7 @@ void BluetoothA2DPSink::handle_avrc_connection_state(bool connected){
     ESP_LOGD(BT_AV_TAG, "%s state %d", __func__, connected);
     avrc_connection_state = connected;
     if (avrc_connection_state_callback!=nullptr){
-        avrc_connection_state_callback(connected);
+        avrc_connection_state_callback(connected, this->callbackContext);
     }    
 }
 
@@ -786,7 +795,7 @@ void BluetoothA2DPSink::handle_connection_state(uint16_t event, void *p_param){
 
             // call callback
             if (bt_dis_connected!=nullptr){
-                (*bt_dis_connected)();
+                (*bt_dis_connected)(this->callbackContext);
             }    
             
 #if A2DP_I2S_SUPPORT
@@ -849,7 +858,7 @@ void BluetoothA2DPSink::handle_connection_state(uint16_t event, void *p_param){
             if (is_valid){
 
                 if (bt_connected!=nullptr){
-                    (*bt_connected)();
+                    (*bt_connected)(this->callbackContext);
                 }                
                 
                 set_scan_mode_connectable(false);   
@@ -941,7 +950,7 @@ void BluetoothA2DPSink::av_notify_evt_handler(uint8_t event_id, uint32_t event_p
 #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 0, 0)
         // call avrc play status notification callback if available
         if (avrc_rn_playstatus_callback != nullptr){
-            avrc_rn_playstatus_callback(event_parameter->playback);
+            avrc_rn_playstatus_callback(event_parameter->playback, this->callbackContext);
         }
 #endif
         break;
@@ -993,7 +1002,7 @@ void BluetoothA2DPSink::av_hdl_avrc_evt(uint16_t event, void *p_param)
         ESP_LOGI(BT_AV_TAG, "AVRC metadata rsp: attribute id 0x%x, %s", rc->meta_rsp.attr_id, rc->meta_rsp.attr_text);
         // call metadata callback if available
         if (avrc_metadata_callback != nullptr){
-            avrc_metadata_callback(rc->meta_rsp.attr_id, rc->meta_rsp.attr_text);
+            avrc_metadata_callback(rc->meta_rsp.attr_id, rc->meta_rsp.attr_text, this->callbackContext);
         }
 
         free(rc->meta_rsp.attr_text);
@@ -1161,7 +1170,7 @@ void BluetoothA2DPSink::audio_data_callback(const uint8_t *data, uint32_t len) {
     // make data available via callback, before volume control
     if (raw_stream_reader!=nullptr){
         ESP_LOGD(BT_AV_TAG, "raw_stream_reader");
-        (*raw_stream_reader)(data, len);
+        (*raw_stream_reader)(data, len, this->callbackContext);
     }
 
     // adjust the volume
@@ -1170,7 +1179,7 @@ void BluetoothA2DPSink::audio_data_callback(const uint8_t *data, uint32_t len) {
     // make data available via callback
     if (stream_reader!=nullptr){
         ESP_LOGD(BT_AV_TAG, "stream_reader");
-        (*stream_reader)(data, len);
+        (*stream_reader)(data, len, this->callbackContext);
     }
 
 
@@ -1190,7 +1199,7 @@ void BluetoothA2DPSink::audio_data_callback(const uint8_t *data, uint32_t len) {
     // data_received callback
     if (data_received!=nullptr){
         ESP_LOGD(BT_AV_TAG, "data_received");
-           (*data_received)();
+           (*data_received)(this->callbackContext);
     }
 }
 
@@ -1455,7 +1464,7 @@ void BluetoothA2DPSink::volume_set_by_controller(uint8_t volume)
     volume_control()->set_enabled(true);
 
     if (bt_volumechange!=nullptr){
-        (*bt_volumechange)(s_volume);
+        (*bt_volumechange)(s_volume, this->callbackContext);
     }    
 }
 
@@ -1519,7 +1528,7 @@ void BluetoothA2DPSink::av_hdl_avrc_tg_evt(uint16_t event, void *p_param)
             esp_avrc_tg_send_rn_rsp(ESP_AVRC_RN_VOLUME_CHANGE, ESP_AVRC_RN_RSP_INTERIM, &rn_param);     
             // notify user aplication volume change by local is completed
             if (avrc_rn_volchg_complete_callback!=nullptr){
-                (*avrc_rn_volchg_complete_callback)(s_volume);
+                (*avrc_rn_volchg_complete_callback)(s_volume, this->callbackContext);
             } 
         }
         break;

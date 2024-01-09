@@ -97,6 +97,9 @@ class BluetoothA2DPSink : public BluetoothA2DPCommon {
     virtual ~BluetoothA2DPSink();
 
 #if A2DP_I2S_SUPPORT
+    virtual void init_i2s();
+    virtual void set_i2s_active(bool active);
+
     /// Define the pins
     virtual void set_pin_config(i2s_pin_config_t pin_config);
    
@@ -135,19 +138,21 @@ class BluetoothA2DPSink : public BluetoothA2DPCommon {
     /// Determine the actual audio type
     virtual esp_a2d_mct_t get_audio_type();
 
+    void set_callback_context(void *context);
+
     /// Define a callback method which provides connection state of AVRC service
-    virtual void set_avrc_connection_state_callback(void (*callback)(bool)) {
+    virtual void set_avrc_connection_state_callback(void (*callback)(bool, void *)) {
       this->avrc_connection_state_callback = callback;
     }
 
     /// Define a callback method which provides the meta data
-    virtual void set_avrc_metadata_callback(void (*callback)(uint8_t, const uint8_t*)) {
+    virtual void set_avrc_metadata_callback(void (*callback)(uint8_t, const uint8_t*, void *)) {
       this->avrc_metadata_callback = callback;
     }
 
 #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 0, 0)
     /// Define a callback method which provides the avrc notifications
-    virtual void set_avrc_rn_playstatus_callback(void (*callback)(esp_avrc_playback_stat_t playback)) {
+    virtual void set_avrc_rn_playstatus_callback(void (*callback)(esp_avrc_playback_stat_t playback, void *)) {
       this->avrc_rn_playstatus_callback = callback;
     }
 #endif
@@ -158,13 +163,13 @@ class BluetoothA2DPSink : public BluetoothA2DPCommon {
     }
 
     /// Define callback which is called when we receive data: This callback provides access to the data
-    virtual void set_stream_reader(void (*callBack)(const uint8_t*, uint32_t), bool i2s_output=true);
+    virtual void set_stream_reader(void (*callBack)(const uint8_t*, uint32_t, void*), bool i2s_output=true);
 
     /// Define a callback that is called before the volume changes: this callback provides access to the data
-    virtual void set_raw_stream_reader(void (*callBack)(const uint8_t*, uint32_t));
+    virtual void set_raw_stream_reader(void (*callBack)(const uint8_t*, uint32_t, void*));
 
     /// Define callback which is called when we receive data
-    virtual void set_on_data_received(void (*callBack)());
+    virtual void set_on_data_received(void (*callBack)(void*));
     
     /// Allows you to reject unauthorized addresses
     virtual void set_address_validator(bool (*callBack)(esp_bd_addr_t remote_bda)){
@@ -181,13 +186,13 @@ class BluetoothA2DPSink : public BluetoothA2DPCommon {
     virtual int get_volume();
 
     /// Set the callback that is called when they change the volume (kept for compatibility)
-    virtual void set_on_volumechange(void (*callBack)(int));
+    virtual void set_on_volumechange(void (*callBack)(int, void *));
 
 	/// Set the callback that is called when remote changes the volume
-    virtual void set_avrc_rn_volumechange(void (*callBack)(int));
+    virtual void set_avrc_rn_volumechange(void (*callBack)(int, void *));
 
     /// set the callback that the local volume change is notification is received and complete
-    virtual void set_avrc_rn_volumechange_completed(void (*callBack)(int));
+    virtual void set_avrc_rn_volumechange_completed(void (*callBack)(int, void *));
 
     /// Starts to play music using AVRC
     virtual void play();
@@ -322,18 +327,19 @@ class BluetoothA2DPSink : public BluetoothA2DPCommon {
     bool is_pin_code_active = false;
     bool avrc_connection_state = false;
     int avrc_metadata_flags = ESP_AVRC_MD_ATTR_TITLE | ESP_AVRC_MD_ATTR_ARTIST | ESP_AVRC_MD_ATTR_ALBUM | ESP_AVRC_MD_ATTR_TRACK_NUM | ESP_AVRC_MD_ATTR_NUM_TRACKS | ESP_AVRC_MD_ATTR_GENRE;
-    void (*bt_volumechange)(int) = nullptr;
-    void (*bt_dis_connected)() = nullptr;
-    void (*bt_connected)() = nullptr;
-    void (*data_received)() = nullptr;
-    void (*stream_reader)(const uint8_t*, uint32_t) = nullptr;
-    void (*raw_stream_reader)(const uint8_t*, uint32_t) = nullptr;
-    void (*avrc_connection_state_callback)(bool connected) = nullptr;
-    void (*avrc_metadata_callback)(uint8_t, const uint8_t*) = nullptr;
+    void *callbackContext = nullptr;
+    void (*bt_volumechange)(int, void*) = nullptr;
+    void (*bt_dis_connected)(void *) = nullptr;
+    void (*bt_connected)(void *) = nullptr;
+    void (*data_received)(void *) = nullptr;
+    void (*stream_reader)(const uint8_t*, uint32_t, void*) = nullptr;
+    void (*raw_stream_reader)(const uint8_t*, uint32_t, void*) = nullptr;
+    void (*avrc_connection_state_callback)(bool connected, void*) = nullptr;
+    void (*avrc_metadata_callback)(uint8_t, const uint8_t*, void*) = nullptr;
 #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 0, 0)
-    void (*avrc_rn_playstatus_callback)(esp_avrc_playback_stat_t) = nullptr;
+    void (*avrc_rn_playstatus_callback)(esp_avrc_playback_stat_t, void*) = nullptr;
 #endif
-    void (*avrc_rn_volchg_complete_callback)(int) = nullptr;
+    void (*avrc_rn_volchg_complete_callback)(int, void*) = nullptr;
     bool (*address_validator)(esp_bd_addr_t remote_bda) = nullptr;
     void (*sample_rate_callback)(uint16_t rate)=nullptr;
     bool swap_left_right = false;
@@ -414,7 +420,7 @@ class BluetoothA2DPSink : public BluetoothA2DPCommon {
 #endif    
 
 #if A2DP_I2S_SUPPORT
-    virtual void init_i2s();
+    //virtual void init_i2s();
 
     /// output audio data e.g. to i2s or to queue
     virtual size_t write_audio(const uint8_t *data, size_t size){
@@ -439,8 +445,6 @@ class BluetoothA2DPSink : public BluetoothA2DPCommon {
     void set_scan_mode_connectable_default() override {
         set_scan_mode_connectable(true);
     }
-
-    virtual void set_i2s_active(bool active);
 
 };
 
