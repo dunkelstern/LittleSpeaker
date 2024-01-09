@@ -15,19 +15,9 @@ AudioOutputFilter3BandEQ::AudioOutputFilter3BandEQ(AudioOutput *sink, int lowFre
 
         state->lf = PRECISION(0);
         state->f1p0 = PRECISION(0);
-        state->f1p1 = PRECISION(0);
-        state->f1p2 = PRECISION(0);
-        state->f1p3 = PRECISION(0);
 
         state->hf = PRECISION(0);
         state->f2p0 = PRECISION(0);
-        state->f2p1 = PRECISION(0);
-        state->f2p2 = PRECISION(0);
-        state->f2p3 = PRECISION(0);
-
-        state->sdm1 = PRECISION(0);  
-        state->sdm2 = PRECISION(0);
-        state->sdm3 = PRECISION(0);
 
         // Set Low/Mid/High gains to unity
         state->lg = PRECISION(1.0);
@@ -92,32 +82,20 @@ bool AudioOutputFilter3BandEQ::ConsumeSample(int16_t sample[2]) {
     PRECISION l(0), m(0), h(0);      // Low / Mid / High - Sample Values
     int32_t result;
 
-    // for(int i = 0; i < this->channels; i++) {
-    int i = 0;  
+    for(int i = 0; i < this->channels; i++) {
         EQState *es = this->state + i;
-        PRECISION s = PRECISION((double)sample[i] / (double)(INT16_MAX + 1));
+        PRECISION s = PRECISION((double)sample[i] / (double)(INT16_MAX + 1) / 2.0);
  
         // Filter #1 (lowpass)
-
         es->f1p0  += (es->lf * (s        - es->f1p0)) + vsa;
-        es->f1p1  += (es->lf * (es->f1p0 - es->f1p1));
-        es->f1p2  += (es->lf * (es->f1p1 - es->f1p2));
-        es->f1p3  += (es->lf * (es->f1p2 - es->f1p3));
-
-        l          = es->f1p3;
+        l = es->f1p0;
 
         // Filter #2 (highpass)
-
         es->f2p0  += (es->hf * (s        - es->f2p0)) + vsa;
-        es->f2p1  += (es->hf * (es->f2p0 - es->f2p1));
-        es->f2p2  += (es->hf * (es->f2p1 - es->f2p2));
-        es->f2p3  += (es->hf * (es->f2p2 - es->f2p3));
-
-        h          = es->sdm3 - es->f2p3;
+        h = s - es->f2p0;
 
         // Calculate midrange (signal - (low + high))
-
-        m          = es->sdm3 - (h + l);
+        m = s - (h + l);
 
         // Scale, Combine and store
 
@@ -125,33 +103,88 @@ bool AudioOutputFilter3BandEQ::ConsumeSample(int16_t sample[2]) {
         m         *= es->mg;
         h         *= es->hg;
 
-        // Shuffle history buffer
-
-        es->sdm3   = es->sdm2;
-        es->sdm2   = es->sdm1;
-        es->sdm1   = s;
-
-        result = (double)(l + m + h) * (double)INT16_MAX;
+        result = round((double)(l + m + h) * (double)INT16_MAX);
 
         // clip
         if (result < INT16_MIN) {
-            Serial.printf("Clip under %d < %d\n", result, INT16_MIN);
             result = INT16_MIN;
         } else if (result > INT16_MAX) {
-            Serial.printf("Clip over %d > %d\n", result, INT16_MAX);
             result = INT16_MAX;
         }
 
         // save
         sample[i] = (int16_t)result;
-//    }
+   }
 
-    // if (this->channels == 1) {
+    if (this->channels == 1) {
         sample[1] = sample[0];
-    // }
+    }
     return sink->ConsumeSample(sample);
 }
 
 bool AudioOutputFilter3BandEQ::stop() {
+    for (int i = 0; i < 2; i++) {
+        EQState *state = this->state + i;
+
+        state->lf = PRECISION(0);
+        state->f1p0 = PRECISION(0);
+
+        state->hf = PRECISION(0);
+        state->f2p0 = PRECISION(0);
+
+        // Set Low/Mid/High gains to unity
+        state->lg = PRECISION(1.0);
+        state->mg = PRECISION(1.0);
+        state->hg = PRECISION(1.0);
+    }
+
     return sink->stop();
+}
+
+
+void AudioOutputFilter3BandEQ::processBuffer(int16_t *samples, int len, int stride, int channels) {
+    PRECISION l(0), m(0), h(0);      // Low / Mid / High - Sample Values
+    int32_t result;
+
+    for(int j = 0; j < len; j+=stride) {
+        int16_t *sample = samples + j;
+
+        for(int i = 0; i < channels; i++) {
+            EQState *es = this->state + i;
+            PRECISION s = PRECISION((double)sample[i] / (double)(INT16_MAX + 1) / 2.0);
+    
+            // Filter #1 (lowpass)
+            es->f1p0  += (es->lf * (s        - es->f1p0)) + vsa;
+            l = es->f1p0;
+
+            // Filter #2 (highpass)
+            es->f2p0  += (es->hf * (s        - es->f2p0)) + vsa;
+            h = s - es->f2p0;
+
+            // Calculate midrange (signal - (low + high))
+            m = s - (h + l);
+
+            // Scale, Combine and store
+
+            l         *= es->lg;
+            m         *= es->mg;
+            h         *= es->hg;
+
+            result = round((double)(l + m + h) * (double)INT16_MAX);
+
+            // clip
+            if (result < INT16_MIN) {
+                result = INT16_MIN;
+            } else if (result > INT16_MAX) {
+                result = INT16_MAX;
+            }
+
+            // save
+            sample[i] = (int16_t)result;
+        }
+
+        if ((channels == 1) && (stride == 2)) {
+            sample[1] = sample[0];
+        }
+    }
 }

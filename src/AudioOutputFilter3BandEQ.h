@@ -8,33 +8,17 @@
 
 typedef struct _EQState {
   // Filter #1 (Low band)
-
   PRECISION  lf;       // Frequency
   PRECISION  f1p0;     // Poles ...
-  PRECISION  f1p1;
-  PRECISION  f1p2;
-  PRECISION  f1p3;
 
   // Filter #2 (High band)
-
   PRECISION  hf;       // Frequency
   PRECISION  f2p0;     // Poles ...
-  PRECISION  f2p1;
-  PRECISION  f2p2;
-  PRECISION  f2p3;
-
-  // Sample history buffer
-
-  PRECISION  sdm1;     // Sample data minus 1
-  PRECISION  sdm2;     //                   2
-  PRECISION  sdm3;     //                   3
 
   // Gain Controls
-
   PRECISION  lg;       // low  gain
   PRECISION  mg;       // mid  gain
   PRECISION  hg;       // high gain
-
 } EQState;
 
 
@@ -52,6 +36,7 @@ class AudioOutputFilter3BandEQ : public AudioOutput
     virtual bool stop() override;
 
     void setBandGains(float low, float mid, float high);
+    void processBuffer(int16_t *samples, int len, int stride, int channels);
 
   protected:
     AudioOutput *sink;
