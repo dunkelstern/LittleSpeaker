@@ -11,10 +11,12 @@ static void deactivateBluetooth(Menu *item);
 static void runBluetooth(void *context);
 static void bluetoothDevConnCallback(bool connected, void *context);
 static void bluetoothAVRCCallback(esp_avrc_playback_stat_t state, void *context);
+static void bluetoothStream(const uint8_t *data, uint32_t len, void *context);
 
 
-BluetoothPlayer::BluetoothPlayer(Playlist *playlist) {
+BluetoothPlayer::BluetoothPlayer(Playlist *playlist, AudioOutputFilter3BandEQ *eq) {
     this->playlist = playlist;
+    this->eq = eq;
     this->a2dp = NULL;
 }
     
@@ -44,9 +46,12 @@ BluetoothA2DPSink* BluetoothPlayer::makeSink() {
     Serial.println("Creating A2DP sink...");
     this->a2dp->set_pin_config(cfg);
     this->a2dp->set_mono_downmix(true);
-    this->a2dp->set_volume(0x0f);
+    this->a2dp->set_volume(0x18);
     this->a2dp->set_avrc_connection_state_callback(bluetoothDevConnCallback);
     this->a2dp->set_avrc_rn_playstatus_callback(bluetoothAVRCCallback);
+    if (this->eq) {
+        this->a2dp->set_stream_reader(bluetoothStream);
+    }
     this->a2dp->set_callback_context(reinterpret_cast<void *>(this));
     this->a2dp->start("LittleBox");
 
@@ -173,4 +178,9 @@ static void bluetoothAVRCCallback(esp_avrc_playback_stat_t state, void *context)
             // ESP_AVRC_PLAYBACK_ERROR
             break;
     }
+}
+
+static void bluetoothStream(const uint8_t *data, uint32_t len, void *context) {
+    BluetoothPlayer *player = reinterpret_cast<BluetoothPlayer *>(context);
+    player->eq->processBuffer((int16_t *)data, len/2, 2, 1); 
 }

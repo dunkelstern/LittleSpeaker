@@ -3,6 +3,7 @@
 
 #include <Arduino.h>
 #include "BluetoothA2DPSink.h"
+#include "AudioOutputFilter3BandEQ.h"
 #include "menu.h"
 #include "playlist.h"
 
@@ -14,7 +15,7 @@ typedef enum _BTState {
 
 class BluetoothPlayer {
     public:
-        BluetoothPlayer(Playlist *playlist);
+        BluetoothPlayer(Playlist *playlist, AudioOutputFilter3BandEQ *eq = NULL);
         ~BluetoothPlayer();
 
         Menu *makeMenu();
@@ -29,6 +30,7 @@ class BluetoothPlayer {
         void pause();
 
         BluetoothA2DPSink *a2dp;
+        AudioOutputFilter3BandEQ *eq;
         void setState(BTState state);
 
         private:

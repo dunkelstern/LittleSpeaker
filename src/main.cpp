@@ -149,7 +149,7 @@ void setup() {
 
   // Audio player
   playlist = new Playlist(eq, 5);
-  btPlayer = new BluetoothPlayer(playlist);
+  btPlayer = new BluetoothPlayer(playlist, eq);
   webPlayer = new WebradioPlayer(playlist);
   sdPlayer = new SDPlayer(playlist);
 
