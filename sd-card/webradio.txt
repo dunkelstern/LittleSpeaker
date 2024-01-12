@@ -1,9 +1,6 @@
-# Eine Stream url (nicht Playlist!) pro Zeile, nur HTTP kein HTTPS
-# Maximale Zeilenlänge: 128 Zeichen, nur MP3 Streams
-# Letzte Zeile mit einem Zeilenumbruch abschließen.
+# One shoutcast stream URL (no Playlists!) per line, only http, no https
+# Max line length: 255 characters, only MP3 Streams, max. 25 stations
+# Add a linebreak after the last line (so there is an empty line)
 http://rautemusik-de-hz-fal-stream16.radiohost.de/club
-http://rautemusik-de-hz-fal-stream16.radiohost.de/trance
-http://rautemusik-de-hz-fal-stream16.radiohost.de/harder
-http://rautemusik-de-hz-fal-stream16.radiohost.de/techno
 http://sunsl.streamabc.net/sunsl-sunslhardstyle-mp3-128-9640077
 http://ice2.somafm.com/groovesalad-128-mp3
