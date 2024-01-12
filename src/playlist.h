@@ -27,7 +27,7 @@ class Playlist {
 
         void loop();
 
-        void registerPlaylistEndCallback(void (*callback)(void *context), void *context);
+        void registerPlaylistEndCallback(void (*callback)(void *context), void *context, bool autoClear = true);
 
     private:
         char *consumeItem();
@@ -49,6 +49,7 @@ class Playlist {
         char *preallocateBuffer;
         void (*endCallback)(void *);
         void *endContext;
+        bool autoClearEndContext;
 };
 
 #endif

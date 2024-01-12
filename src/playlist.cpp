@@ -182,9 +182,10 @@ void Playlist::stopAndClear() {
     vTaskDelay(100);
 }
 
-void Playlist::registerPlaylistEndCallback(void (*callback)(void *), void *context) {
+void Playlist::registerPlaylistEndCallback(void (*callback)(void *), void *context, bool autoClear) {
     this->endCallback = callback;
     this->endContext = context;
+    this->autoClearEndContext = autoClear;
 }
 
 
@@ -273,10 +274,17 @@ void Playlist::loop() {
                 Serial.println("All items played!");
                 this->state = PlaybackStateStopped;
                 if (this->endCallback) {
-                    void (*savedCallback)(void *context) = this->endCallback;
-                    this->endCallback = NULL;
-                    savedCallback(this->endContext);
-                    this->endContext = NULL;
+                    if (this->autoClearEndContext) {
+                        void (*savedCallback)(void *context) = this->endCallback;
+                        this->endCallback = NULL;
+                        savedCallback(this->endContext);
+                        if (this->endCallback == NULL) { 
+                            // if no new callback has been set here, we NULL the context too
+                            this->endContext = NULL;
+                        }
+                    } else {
+                        this->endCallback(this->endContext);
+                    }
                 }
             }
             return;
