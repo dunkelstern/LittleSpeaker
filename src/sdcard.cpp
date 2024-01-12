@@ -338,9 +338,6 @@ bool SDPlayer::previous(bool announce, bool loop) {
 }
 
 bool SDPlayer::next(bool announce, bool loop) {
-    if (this->playlist->getState() == PlaybackStatePaused) {
-        this->playlist->stopAndClear();
-    }
     Serial.printf("Next in state %d, album: %d, track: %d\n", this->state, this->currentAlbum, this->currentTrack);
 
     if (this->state == SDStateAlbumMenu) {
@@ -366,6 +363,10 @@ bool SDPlayer::next(bool announce, bool loop) {
 
         if (announce) {
             this->announce(this->currentAlbum, this->currentTrack);
+        } else {
+            if (this->playlist->getState() == PlaybackStatePaused) {
+                this->playlist->stopAndClear();
+            }
         }
         this->play(this->currentAlbum, this->currentTrack, false);
     }
@@ -466,6 +467,7 @@ static void sdPlaylistEnd(void *context) {
     SDPlayer *player = reinterpret_cast<SDPlayer *>(context);
     bool success = player->next(false, false);
     if (!success) {
+        player->playlist->stopAndClear();
         player->playlist->addFilename("/system/stopped.mp3");
         player->playlist->play();
     }
