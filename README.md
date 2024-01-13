@@ -1,3 +1,23 @@
+---
+title: LittleSpeaker
+author: Johannes Schriewer
+date: January 2024
+toc: true
+lof: true
+numbersections: true
+geometry: margin=2.5cm
+urlcolor: blue
+papersize: a4
+header-includes: |
+    \usepackage{fancyhdr}
+    \pagestyle{fancy}
+    \lfoot{13.01.2024}
+    \rfoot{Page \thepage}
+include-before:
+- '`\newpage{}`{=latex}'
+fontfamily: universalis
+---
+
 # LittleSpeaker
 
 This is the Git-Repository for the LittleSpeaker Project. The idea is to build
@@ -8,6 +28,8 @@ Design of the enclosure is by Jennifer Leis, Firmware and electronics by me.
 
 ![Assembly graphic](docs/enclosure/assembly.png)
 
+\newpage{}
+
 ## Enclosure
 
 The prototype enclosure was 3D printed and is held together by a hinge and just one
@@ -15,25 +37,26 @@ M3 screw.
 
 You will need:
 
-1. 1x [Front bezel](enclosure/front-bezel.step)
-   ![Front bezel graphic](docs/enclosure/front-bezel.png)
-2. 1x [Back bezel](enclosure/back-bezel.step)
-   ![Back bezel graphic](docs/enclosure/back-bezel.png)
-3. 1x [Back plate](enclosure/back-plate.step)
-   ![Back plate graphic](docs/enclosure/back-plate.png)
-4. 1x [Front plate](enclosure/front-plate.step)
-   ![Front plate graphic](docs/enclosure/front-plate.png)
-5. 1x [Hinge](enclosure/hinge.step)
-   ![Hinge graphic](docs/enclosure/hinge.png)
-6. 2x [Knob](enclosure/knob.step)
-   ![Knob graphic](docs/enclosure/knob.png)
+1. 1x [Front bezel](enclosure/front-bezel.step)<div>
+   ![Front bezel graphic](docs/enclosure/front-bezel.png){width=50%}</div>
+2. 1x [Back bezel](enclosure/back-bezel.step)<div>
+   ![Back bezel graphic](docs/enclosure/back-bezel.png){width=50%}</div>
+3. 1x [Back plate](enclosure/back-plate.step)<div>
+   ![Back plate graphic](docs/enclosure/back-plate.png){width=50%}</div>
+4. 1x [Front plate](enclosure/front-plate.step)<div>
+   ![Front plate graphic](docs/enclosure/front-plate.png){width=50%}</div>
+5. 1x [Hinge](enclosure/hinge.step)<div>
+   ![Hinge graphic](docs/enclosure/hinge.png){width=50%}</div>
+6. 2x [Knob](enclosure/knob.step)<div>
+   ![Knob graphic](docs/enclosure/knob.png){width=50%}</div>
 7. Two small pieces of wood or plastic as holding braces for the PCBs
-   that will be accessible from the outside (15 x 40mm two M3 trough holes)
-   ![Braces graphic](docs/enclosure/brace.png)
+   that will be accessible from the outside (15 x 40mm two M3 trough holes)<div>
+   ![Braces graphic](docs/enclosure/brace.png){width=50%}</div>
 8. Brass hotmelt inserts for screwing the front and back together and for the braces:
    - 1 x M3x6
    - 4 x M3x4
-   ![Brass insert graphic](docs/enclosure/brass-insert.png)
+   <div>
+   ![Brass insert graphic](docs/enclosure/brass-insert.png){width=50%}</div>
 9. 5x M3x10 Cap head screws
 10. Some self-tapping screws to attach the power switch.
 11. A piece of Copper wire to fit into the hinge to connect the front and back pieces
@@ -46,7 +69,9 @@ part to not print any bottom or top layers, use hexagon/honeycomb infill and use
 40% infill strength. You can remove the speaker grille part if you want to have the
 speaker open like you can see in the rendered graphic of the assembly.
 
-After printing:
+\newpage{}
+
+### After printing:
 
 1. Remove the supports from the holding brackets of the speaker driver.
    There should be thin walled supports that have been designed into the part.
@@ -59,6 +84,8 @@ After printing:
    Alternatively insert a dab of glue to close the hole.
 5. The SD card slot and USB-C port probably need some cleanup and filing to fit perfectly.
 
+\newpage{}
+
 ## Electronics
 
 The electronics in this devices are meant to be modular, so developer boards for all
@@ -68,37 +95,43 @@ connectors and solder everything together, that's your choice.
 
 ### BOM
 
-- DFRobot Firebeetle 2 ESP32-E (ESP32 development board with battery charger and USB-C)
-  ![Firebeetle ESP32-E](docs/electronics/esp32-firebeetle-esp32-e.jpg)
-- I2S DAC usually something like a `PCM5102A`
-  ![I2S DAC](docs/electronics/i2s-dac-PCM5102A.jpg)
-- Micro SD Card reader, see below for more instructions!
-  ![SD-Card Reader](docs/electronics/micro-sd-card-reader.jpg)
-- Class D Amplifier for 1.5W to 4W with volume regulation, for example `PAM8403`
-  ![Class D amp](docs/electronics/amp-PAM8403.jpg)
+- DFRobot Firebeetle 2 ESP32-E (ESP32 development board with battery charger and USB-C)<div>
+  ![Firebeetle ESP32-E](docs/electronics/esp32-firebeetle-esp32-e.jpg){width=50%}</div>
+- I2S DAC usually something like a `PCM5102A`<div>
+  ![I2S DAC](docs/electronics/i2s-dac-PCM5102A.jpg){width=50%}</div>
+- Micro SD Card reader, see below for more instructions!<div>
+  ![SD-Card Reader](docs/electronics/micro-sd-card-reader.jpg){width=50%}</div>
+- Class D Amplifier for 1.5W to 4W with volume regulation, for example `PAM8403`<div>
+  ![Class D amp](docs/electronics/amp-PAM8403.jpg){width=50%}</div>
 - "57mm Speaker" (yes this is the search term). You can probably use any speaker you
-  want as long as it is 4-8 Ohms and can work with your amplifier.
-  ![Speaker](docs/electronics/speaker-57mm.jpg)
-- LiIon 18650 Battery
-  ![18650](docs/electronics/18650.jpg)
-- Battery holder
-  ![Battery holder](docs/electronics/battery-holder.jpg)
+  want as long as it is 4-8 Ohms and can work with your amplifier.<div>
+  ![Speaker](docs/electronics/speaker-57mm.jpg){width=50%}</div>
+- LiIon 18650 Battery<div>
+  ![18650](docs/electronics/18650.jpg){width=50%}</div>
+- Battery holder<div>
+  ![Battery holder](docs/electronics/battery-holder.jpg){width=50%}</div>
 - 3x Round pushbutton. If you cannot find these, you probably can use others if you
-  have some patience and a file for the holes ;)
-  ![Buttons](docs/electronics/button.jpg)
-- Sliding switch for power
-  ![Switch](docs/electronics/switch.jpg)
+  have some patience and a file for the holes ;)<div>
+  ![Buttons](docs/electronics/button.jpg){width=50%}</div>
+- Sliding switch for power<div>
+  ![Switch](docs/electronics/switch.jpg){width=50%}</div>
 - Encoder with pullups, you can get modules that have pullups integrated, if you
   have no pullups integrated you can integrate resistors in your wiring.
-  **Attention:** this is not a potientometer but a gray encoder!
-  ![Encoder](docs/electronics/encoder.jpg)
+  *Attention: this is not a potientometer but a gray encoder!*<div>
+  ![Encoder](docs/electronics/encoder.jpg){width=50%}</div>
 - 3 x 1kOhm resistor as pull up for the buttons
 - Some multi colored wires, a soldering Iron and patience
+
+\newpage{}
 
 **SD-Card reader:**
 
 Get a reader that has the Card slot as close to the edge as possible, if it is not at the
 edge you can usually file away some of the FR4 board to make it fit. (Usually there are no traces there to destroy...).
+
+<div>
+![SD-Card reader Mod](docs/electronics/micro-sd-card-reader-mod.jpg){width=50%}
+</div>
 
 Most SD-Card readers you can get on the market are designed to be used with 5V electronics
 and contain a linear regulator (red X) to step down that voltage to 3.3V. As the ESP32
@@ -107,15 +140,17 @@ to run is usually 4.5V. When removing the part either use hot air or just a sold
 iron and cook  that thing, as we won't be needing it you do not have to save it. After
 removal just bridge input and output of the part (marked in green).
 
-![SD-Card reader Mod](docs/electronics/micro-sd-card-reader-mod.jpg)
-
+\newpage{}
 
 ### Wiring
 
 ![Wired up](docs/electronics/wiring.jpg)
 
-Open the [Schematic](electronics/schematic/outputs/schematic.pdf)
+Open the [Schematic](electronics/schematic/outputs/schematic.pdf) from `electronics/schematic/outputs/schematic.pdf`
+
+<div>
 ![Schematic preview](docs/electronics/schematic.png)
+</div>
 
 Make sure to connect the Amplifier directly to the battery and **not** the ESP32. You will crash the ESP with loud music as the regulator on the PCB will not deliver enough power!
 
@@ -125,6 +160,8 @@ The development boards are glued with double sided tape and if needed you can ap
 
 The Speaker will slide into the printed rails but it will rattle around, you need some
 foam tape or foam rubber strips to wedge the speaker into.
+
+\newpage{}
 
 ## Firmware
 
@@ -194,3 +231,5 @@ To prepare the SD-Card for the speaker:
 1. Format the SD-Card to FAT32
 2. Put all files from the `sd-card` folder directly onto the SD-Card
 3. Read the [Readme](sd-card/README.md) of the SD-Card for more information
+
+\newpage{}

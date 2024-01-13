@@ -1,4 +1,4 @@
-# LittleSpeaker SD-Card contents
+# SD-Card contents
 
 This is a quick how-to for the SD-Card contents of LittleSpeaker
 
